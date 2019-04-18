@@ -71,3 +71,17 @@ class TestXML(TestCase):
         protocol_number = 'A.B.YYYYMM.NNNNNNNNNNNNNNNNNNN'
         batch_to_retrieve = ws._make_retrieve_envelop(protocol_number)
         ws.validate_envelop('retrieve', batch_to_retrieve)
+
+    def test_obtain_employee_ids(self):
+        employer_id = {
+            'tpInsc': 1,
+            'nrInsc': '32712967000192'
+        }
+        ws = client.WSClient(
+            pfx_file='/home/alexandre/Documents/eCNPJ_A1_20180215_20190215_bkp.pfx',
+            pfx_passw='secret',
+            employer_id=employer_id,
+            sender_id=employer_id
+        )
+        result = ws.obtain_employee_ids('09887219967', '2019-03-10T00:00:00', '2019-04-10T23:59:59')
+        print(xml.dump_tostring(result, pretty_print=True))

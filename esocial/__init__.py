@@ -56,11 +56,24 @@ __xsd_versions__ = {
         'version': '1.0.0',
         'xsd': 'ConsultaIdentificadoresEventosTrabalhador-v{}.xsd'
     },
-    'view_event_id_return':{
+    'view_event_id_return': {
         'version': '1.0.0',
         'xsd': 'RetornoConsultaIdentificadoresEventos-v{}.xsd'
     },
+    'download_receipt': {
+        'version': '1.0.0',
+        'xsd': 'SolicitacaoDownloadEventosPorNrRecibo-v{}.xsd'
+    },
+    'download_id': {
+        'version': '1.0.0',
+        'xsd': 'SolicitacaoDownloadEventosPorId-v{}.xsd'
+    },
+    'download_return': {
+        'version': '1.0.0',
+        'xsd': 'RetornoSolicitacaoDownloadEventos-v{}.xsd'
+    }
 }
+
 
 _TARGET = 'tests'
 
@@ -68,10 +81,13 @@ _WS_URL = {
     'tests': {
         'send': 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/enviarloteeventos/WsEnviarLoteEventos.svc?wsdl',
         'retrieve': 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/consultarloteeventos/WsConsultarLoteEventos.svc?wsdl',
+        'event_ids': 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/dwlcirurgico/WsConsultarIdentificadoresEventos.svc?wsdl',
+        'download': 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/dwlcirurgico/WsSolicitarDownloadEventos.svc?wsdl',
     },
-
     'production': {
         'send': 'https://webservices.envio.esocial.gov.br/servicos/empregador/enviarloteeventos/WsEnviarLoteEventos.svc?wsdl',
         'retrieve': 'https://webservices.consulta.esocial.gov.br/servicos/empregador/consultarloteeventos/WsConsultarLoteEventos.svc?wsdl',
+        'event_ids': 'https://webservices.download.esocial.gov.br/servicos/empregador/dwlcirurgico/WsConsultarIdentificadoresEventos.svc?wsdl',
+        'download': 'https://webservices.download.esocial.gov.br/servicos/empregador/dwlcirurgico/WsSolicitarDownloadEventos.svc?wsdl',
     }
 }

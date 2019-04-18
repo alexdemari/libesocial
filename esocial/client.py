@@ -374,7 +374,7 @@ class WSClient(object):
         batch_to_search = batch_to_search.getroot()
         self.validate_envelop('view_employee_event_id', batch_to_search)
 
-        url = esocial._WS_URL[self.target]['consulta']
+        url = esocial._WS_URL[self.target]['event_ids']
         ws = self._connect(url)
         element = ws.get_element('ns1:ConsultarIdentificadoresEventosTrabalhador')
         result = ws.service.ConsultarIdentificadoresEventosTrabalhador(
