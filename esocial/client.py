@@ -234,3 +234,151 @@ class WSClient(object):
         result = ws.service.ConsultarLoteEventos(SearchElement(consulta=batch_to_search))
         del ws
         return result
+
+    def _make_download_id_envelop(self, id_requisitado):
+        xmlns = "http://www.esocial.gov.br/schema/download/solicitacao/id/v{}"
+        version = esocial.__xsd_versions__['request_id']['version'].replace('.', '_')
+        xmlns = xmlns.format(version)
+        nsmap = {None: xmlns}
+        envelop = xml.create_root_element('eSocial', ns=nsmap)
+        xml.add_element(envelop, None, 'download', ns=nsmap)
+        xml.add_element(envelop, 'download', 'ideEmpregador', ns=nsmap)
+        xml.add_element(
+            envelop,
+            'download/ideEmpregador',
+            'tpInsc',
+            text=str(self.employer_id['tpInsc']),
+            ns=nsmap,
+        )
+        xml.add_element(
+            envelop,
+            'download/ideEmpregador',
+            'nrInsc',
+            text=str(self._check_nrinsc(self.employer_id)),
+            ns=nsmap
+        )
+        xml.add_element(envelop, 'download', 'solicDownloadEvtsPorId', ns=nsmap)
+        xml.add_element(envelop, 'download/solicDownloadEvtsPorId', 'id', text=str(id_requisitado), ns=nsmap)
+        return envelop
+
+    def download_id(self, request_id):
+        batch_to_download = self._make_download_id_envelop(request_id)
+        batch_to_download = xml.sign(batch_to_download.getroottree(), self.cert_data)
+        self.validate_envelop('request_id', batch_to_download)
+
+        url = esocial._WS_URL[self.target]['download']
+        ws = self._connect(url)
+        batch_to_download = batch_to_download.getroot()
+
+        BatchElement = ws.get_element('ns1:SolicitarDownloadEventosPorId')
+        result = ws.service.SolicitarDownloadEventosPorId(BatchElement(solicitacao=batch_to_download))
+        del ws
+
+        return result
+
+    def _make_employer_ids_envelop(self, event_id, year):
+        xmlns = "http://www.esocial.gov.br/schema/consulta/identificadores-eventos/empregador/v{}"
+        version = esocial.__xsd_versions__['view_employer_event_id']['version'].replace('.', '_')
+        xmlns = xmlns.format(version)
+        nsmap = {None: xmlns}
+        envelop = xml.create_root_element('eSocial', ns=nsmap)
+        xml.add_element(envelop, None, 'consultaIdentificadoresEvts', ns=nsmap)
+        xml.add_element(envelop, 'consultaIdentificadoresEvts', 'ideEmpregador', ns=nsmap)
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/ideEmpregador',
+            'tpInsc',
+            text=str(self.employer_id['tpInsc']),
+            ns=nsmap
+        )
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/ideEmpregador',
+            'nrInsc',
+            text=str(self._check_nrinsc(self.employer_id)),
+            ns=nsmap
+        )
+        xml.add_element(envelop, 'consultaIdentificadoresEvts', 'consultaEvtsEmpregador', ns=nsmap)
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/consultaEvtsEmpregador',
+            'tpEvt',
+            text=event_id,
+            ns=nsmap
+        )
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/consultaEvtsEmpregador',
+            'perApur',
+            text=year,
+            ns=nsmap
+        )
+        return envelop
+
+    def obtain_employer_ids(self, event_id, year):
+        batch_to_search = self._make_employer_ids_envelop(event_id, year)
+        batch_to_search = xml.sign(batch_to_search.getroottree(), self.cert_data)
+        self.validate_envelop('view_employer_event_id', batch_to_search)
+
+        batch_to_search = batch_to_search.getroot()
+        url = esocial._WS_URL[self.target]['consulta']
+        ws = self._connect(url)
+        element = ws.get_element('ns1:ConsultarIdentificadoresEventosEmpregador')
+        result = ws.service.ConsultarIdentificadoresEventosEmpregador(
+            element(consultaEventosEmpregador=batch_to_search))
+        del ws
+
+        return result
+
+    def _make_employee_ids_envelop(self, social_security_number, start_date, end_date):
+        xmlns = 'http://www.esocial.gov.br/schema/consulta/identificadores-eventos/trabalhador/v{}'
+
+        version = esocial.__xsd_versions__['view_employee_event_id']['version'].replace('.', '_')
+        xmlns = xmlns.format(version)
+        nsmap = {None: xmlns}
+        envelop = xml.create_root_element('eSocial', ns=nsmap)
+        xml.add_element(envelop, None, 'consultaIdentificadoresEvts', ns=nsmap)
+        xml.add_element(envelop, 'consultaIdentificadoresEvts', 'ideEmpregador', ns=nsmap)
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/ideEmpregador',
+            'tpInsc',
+            text=str(self.employer_id['tpInsc']),
+            ns=nsmap
+        )
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/ideEmpregador',
+            'nrInsc',
+            text=str(self._check_nrinsc(self.employer_id)),
+            ns=nsmap
+        )
+        xml.add_element(envelop, 'consultaIdentificadoresEvts', 'consultaEvtsTrabalhador', ns=nsmap)
+        xml.add_element(
+            envelop,
+            'consultaIdentificadoresEvts/consultaEvtsTrabalhador',
+            'cpfTrab',
+            text=str(social_security_number),
+            ns=nsmap
+        )
+        xml.add_element(
+            envelop, 'consultaIdentificadoresEvts/consultaEvtsTrabalhador', 'dtIni', text=start_date, ns=nsmap)
+        xml.add_element(
+            envelop, 'consultaIdentificadoresEvts/consultaEvtsTrabalhador', 'dtFim', text=end_date, ns=nsmap)
+
+        return envelop
+
+    def obtain_employee_ids(self, social_security_number, start_date, end_date):
+        batch_to_search = self._make_employee_ids_envelop(social_security_number, start_date, end_date)
+        batch_to_search = xml.sign(batch_to_search.getroottree(), self.cert_data)
+        batch_to_search = batch_to_search.getroot()
+        self.validate_envelop('view_employee_event_id', batch_to_search)
+
+        url = esocial._WS_URL[self.target]['consulta']
+        ws = self._connect(url)
+        element = ws.get_element('ns1:ConsultarIdentificadoresEventosTrabalhador')
+        result = ws.service.ConsultarIdentificadoresEventosTrabalhador(
+            element(consultaEventosTrabalhador=batch_to_search))
+        del ws
+
+        return result
