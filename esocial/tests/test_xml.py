@@ -12,76 +12,222 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import json
 import os
+
+import pytest
+import requests_mock
 
 import esocial
 
-from unittest import TestCase
-
-from esocial import xml
-from esocial import client
+from esocial import xml, client
 from esocial.utils import pkcs12_data
 
 here = os.path.dirname(os.path.abspath(__file__))
 there = os.path.dirname(os.path.abspath(esocial.__file__))
 
 
-class TestXML(TestCase):
+def obtain_file_data(filename):
+    with open(filename, 'r') as fd:
+        return fd.read()
 
-    def test_S2220_xml(self):
-        evt2220 = xml.load_fromfile(os.path.join(here, 'xml', 'S-2220.xml'))
-        isvalid = True
-        try:
-            xml.XMLValidate(evt2220).validate()
-        except AssertionError:
-            isvalid = False
-        self.assertTrue(isvalid)
 
-    def test_xml_sign(self):
-        evt2220_not_signed = xml.load_fromfile(os.path.join(here, 'xml', 'S-2220_not_signed.xml'))
-        xmlschema = xml.XMLValidate(evt2220_not_signed)
-        isvalid = xmlschema.isvalid()
-        self.assertFalse(isvalid, msg=str(xmlschema.last_error))
-        # Test signing
-        cert_data = pkcs12_data(
-            cert_file=os.path.join(there, 'certs', 'libesocial-cert-test.pfx'),
-            password='cert@test'
-        )
-        evt2220_signed = xml.sign(evt2220_not_signed, cert_data)
-        xml.XMLValidate(evt2220_signed).validate()
+@pytest.fixture
+def resources_path():
+    return f'{here}/resources'
 
-    def test_xml_send_batch(self):
-        evt2220 = xml.load_fromfile(os.path.join(here, 'xml', 'S-2220_not_signed.xml'))
-        employer_id = {
-            'tpInsc': 2,
+
+@pytest.fixture
+def ws_client(resources_path, request):
+    client_settings = {
+        'cert_filename': os.path.join(there, 'certs', 'libesocial-cert-test.pfx'),
+        'cert_password': 'cert@test',
+        'employer': {
+            'tpInsc': 1,
             'nrInsc': '12345678901234'
         }
-        ws = client.WSClient(
-            pfx_file=os.path.join(there, 'certs', 'libesocial-cert-test.pfx'),
-            pfx_passw='cert@test',
-            employer_id=employer_id,
-            sender_id=employer_id
-        )
-        ws.add_event(evt2220)
-        batch_to_send = ws._make_send_envelop(1)
-        ws.validate_envelop('send', batch_to_send)
+    }
 
-    def test_xml_retrieve_batch(self):
-        ws = client.WSClient()
-        protocol_number = 'A.B.YYYYMM.NNNNNNNNNNNNNNNNNNN'
-        batch_to_retrieve = ws._make_retrieve_envelop(protocol_number)
-        ws.validate_envelop('retrieve', batch_to_retrieve)
+    if hasattr(request, 'params') and request.params.get('read_settings_file'):
+        client_settings_filename = os.path.join(resources_path, '.client-settings.json')
+        if os.path.exists(client_settings_filename):
+            client_settings = json.loads(obtain_file_data(client_settings_filename))
+        else:
+            raise AssertionError(f'File {client_settings_filename} not found!')
 
-    def test_obtain_employee_ids(self):
-        employer_id = {
-            'tpInsc': 1,
-            'nrInsc': '32712967000192'
-        }
-        ws = client.WSClient(
-            pfx_file='/home/alexandre/Documents/eCNPJ_A1_20180215_20190215_bkp.pfx',
-            pfx_passw='secret',
-            employer_id=employer_id,
-            sender_id=employer_id
-        )
-        result = ws.obtain_employee_ids('09887219967', '2019-03-10T00:00:00', '2019-04-10T23:59:59')
-        print(xml.dump_tostring(result, pretty_print=True))
+    return client.WSClient(
+        pfx_file=client_settings.get('cert_filename'),
+        pfx_passw=client_settings.get('cert_password'),
+        employer_id=client_settings.get('employer'),
+        sender_id=client_settings.get('employer')
+    )
+
+
+def test_should_validate_schema(resources_path):
+    # GIVEN
+    event = xml.load_fromfile(os.path.join(resources_path, 'S-2220.xml'))
+
+    # WHEN
+    xml_schema = xml.XMLValidate(event)
+
+    # THEN
+    assert xml_schema.isvalid()
+
+
+def test_should_sign_xml(resources_path):
+    # GIVEN
+    evt2220_not_signed = xml.load_fromfile(os.path.join(resources_path, 'S-2220_not_signed.xml'))
+
+    # WHEN
+    cert_data = pkcs12_data(
+        cert_file=os.path.join(there, 'certs', 'libesocial-cert-test.pfx'),
+        password='cert@test'
+    )
+    evt2220_signed = xml.sign(evt2220_not_signed, cert_data)
+
+    # THEN
+    assert xml.XMLValidate(evt2220_signed).isvalid()
+
+
+def test_should_send_events_batch(ws_client, resources_path):
+    # GIVEN
+    event = xml.load_fromfile(f'{resources_path}/S-2220_not_signed.xml')
+
+    ws_client.add_event(event)
+
+    # WHEN
+    with requests_mock.mock() as mock:
+        url = esocial._WS_URL[ws_client.target]['send']
+        mock.get(url, text=obtain_file_data(f'{resources_path}/WsEnviarLoteEventos.wsdl'))
+        mock.post(url[:-5], text=obtain_file_data(f'{resources_path}/RetornoEnvioLoteEventos.xml'))
+
+        result = ws_client.send_events_batch(1, 'ns0:EnviarLoteEventos')
+
+    # THEN
+    assert result
+
+
+def test_should_retrieve_events_batch(ws_client, resources_path):
+    # GIVEN
+    protocol_number = 'A.B.YYYYMM.NNNNNNNNNNNNNNNNNNN'
+
+    # WHEN
+    with requests_mock.mock() as mock:
+        url = esocial._WS_URL[ws_client.target]['retrieve']
+        mock.get(url, text=obtain_file_data(f'{resources_path}/WsConsultarLoteEventos.wsdl'))
+        mock.post(url, text=obtain_file_data(f'{resources_path}/RetornoProcessamentoLoteEventos.xml'))
+
+        result = ws_client.retrieve_events_batch(protocol_number, 'ns0:ConsultarLoteEventos')
+
+    # THEN
+    assert result
+
+
+# def test_should_obtain_employee_ids(ws_client):
+#     # GIVEN
+#
+#     # WHEN
+#     with requests_mock.mock() as mock:
+#         url = esocial._WS_URL[ws_client.target]['events_ids']
+#         mock.get(url, text=obtain_file_data(f'{resources_path}/WsConsultarIdentificadoresEventos.wsdl'))
+#         mock.post(url, text=obtain_file_data(f'{resources_path}/RetornoProcessamentoLoteEventos.xml'))
+#
+#         result = ws_client.obtain_employee_ids('09887219967', '2019-03-10T00:00:00', '2019-04-10T23:59:59')
+#
+#     # THEN
+#     assert result
+#
+#
+# def test_should_obtain_employee_ids_real():
+#     employer_id = {
+#         'tpInsc': 1,
+#         'nrInsc': '32712967000192'
+#     }
+#     ws = client.WSClient(
+#         pfx_file='/home/alexandre/Documents/eCNPJ_A1_20190215_20200215_bkp.pfx',
+#         pfx_passw='',
+#         employer_id=employer_id,
+#         sender_id=employer_id
+#     )
+#     result = ws.obtain_employee_ids('09887219967', '2019-04-10T00:00:00', '2019-04-25T13:30:00')
+#     print(xml.dump_tostring(result, True))
+#
+#
+# def test_should_obtain_employer_ids_real():
+#     employer_id = {
+#         'tpInsc': 1,
+#         'nrInsc': '32712967000192'
+#     }
+#     ws = client.WSClient(
+#         pfx_file='/home/alexandre/Documents/eCNPJ_A1_20190215_20200215_bkp.pfx',
+#         pfx_passw='',
+#         employer_id=employer_id,
+#         sender_id=employer_id
+#     )
+#     result = ws.obtain_employer_ids('S-1000', '2019-03')
+#     print(xml.dump_tostring(result, True))
+#
+#
+# def test_should_download_events_by_ids_real():
+#     # GIVEN
+#     employer_id = {
+#         'tpInsc': 1,
+#         'nrInsc': '32712967000192'
+#     }
+#     ws = client.WSClient(
+#         pfx_file='/home/alexandre/Documents/eCNPJ_A1_20190215_20200215_bkp.pfx',
+#         pfx_passw='',
+#         employer_id=employer_id,
+#         sender_id=employer_id
+#     )
+#
+#     events_ids = ['ID1327129670000002019032114182400001', 'ID1327129670000002019032116534600001']
+#
+#     # WHEN
+#     result = ws.download_events_by_ids(events_ids)
+#
+#     # THEN
+#     print(xml.dump_tostring(result, True))
+#
+#
+# def test_should_send_events_batch_real(resources_path):
+#     # GIVEN
+#     evt_not_signed = xml.load_fromfile(f'{resources_path}/S-2190_not_signed.xml')
+#
+#     employer_id = {
+#         'tpInsc': 1,
+#         'nrInsc': '32712967000192'
+#     }
+#     ws = client.WSClient(
+#         pfx_file='/home/alexandre/Documents/eCNPJ_A1_20190215_20200215_bkp.pfx',
+#         pfx_passw='',
+#         employer_id=employer_id,
+#         sender_id=employer_id
+#     )
+#     ws.add_event(evt_not_signed)
+#
+#     # WHEN
+#     result = ws.send_events_batch(1)
+#
+#     # THEN
+#     print(xml.dump_tostring(result, True))
+#
+#
+# def test_should_retrieve_events_batch_real(resources_path):
+#     # GIVEN
+#     employer_id = {
+#         'tpInsc': 1,
+#         'nrInsc': '32712967000192'
+#     }
+#     ws = client.WSClient(
+#         pfx_file='/home/alexandre/Documents/eCNPJ_A1_20190215_20200215_bkp.pfx',
+#         pfx_passw='',
+#         employer_id=employer_id,
+#         sender_id=employer_id
+#     )
+#
+#     # WHEN
+#     result = ws.retrieve_events_batch('')
+#
+#     # THEN
+#     print(xml.dump_tostring(result, True))

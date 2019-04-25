@@ -115,29 +115,35 @@ def create_root_element(root_tag, ns={}, **attrs):
         root = etree.Element(root_tag, nsmap=ns)
     else:
         root = etree.Element(root_tag)
+
     if attrs:
         for attr in attrs:
             root.set(attr, utils.normalize_text(attrs[attr]))
+
     return root
 
 
 def add_element(root, element_tag, tag_name, text=None, ns={}, **attrs):
     tag_root = None
     ns_keys = [K for K in ns]
+
     if element_tag:
         if len(ns) == 1:
             search_tags = element_tag.split('/')
             k = None
+
             if ns_keys[0] is None:
                 k = ns[None]
             else:
                 k = ns_keys[0]
+
             for i, t in enumerate(search_tags):
                  search_tags[i] = '{{{}}}{}'.format(k, t)
             element_tag = '/'.join(search_tags)
         tag_root = root.find(element_tag)
     else:
         tag_root = root
+
     if tag_root is not None:
         # MUST be just one name space map!!!
         if len(ns) == 1:
@@ -146,12 +152,15 @@ def add_element(root, element_tag, tag_name, text=None, ns={}, **attrs):
             sub_tag = etree.SubElement(tag_root, tag_name, nsmap=ns)
         else:
             sub_tag = etree.SubElement(tag_root, tag_name)
+
         if attrs:
             for attr in attrs:
                 sub_tag.set(attr, utils.normalize_text(attrs[attr]))
+
         if text is not None:
             sub_tag.text = utils.normalize_text(text)
         return sub_tag
+
     return None
 
 
@@ -174,11 +183,13 @@ def load_fromstring(xmlstring):
 
 def dump_tostring(xmlelement, xml_declaration=True, pretty_print=False):
     xml_header = u''
+
     if xml_declaration:
         if isinstance(xml_declaration, six.string_types):
             xml_header = xml_declaration
         else:
             xml_header = u'<?xml version="1.0" encoding="UTF-8"?>'
+
     return ''.join([xml_header, etree.tostring(xmlelement, pretty_print=pretty_print).decode()])
 
 
@@ -186,12 +197,15 @@ def _check_attrs(tag_dict):
     attrs = None
     value = None
     nsmap = {}
+
     if '__ATTRS__' in tag_dict:
         if 'xmlns' in tag_dict['__ATTRS__']:
             nsmap = {None: tag_dict['__ATTRS__'].pop('xmlns')}
         attrs = tag_dict.pop('__ATTRS__')
+
     if '__VALUE__' in tag_dict:
         value = tag_dict.pop('__VALUE__')
+
     return (attrs, nsmap, value)
 
 
@@ -270,19 +284,26 @@ def load_fromjson(json_obj, root=None):
             py_ = json.loads(json_obj, object_pairs_hook=OrderedDict)
         else:
             py_ = json_obj
+
         has_root = False
+
         root_tag = root.copy() if root else None
+
         nsmap = {}
+
         if isinstance(py_, types.DictType):
             for k in py_:
                 if root_tag is None and not has_root:
                     attrs, nsmap, value_attr = _check_attrs(py_[k])
                     root_tag = create_root_element(k, ns=nsmap, **attrs if attrs else {})
                     has_root = True
+
                 recursive_add_element(root_tag, py_[k], nsmap_default=nsmap)
         else:
             raise ValueError('JSON structure must be an object in the first level.')
+
         return etree.ElementTree(root_tag)
+
     return None
 
 
@@ -293,9 +314,10 @@ def sign(xml, cert_data):
         digest_algorithm='sha256',
         c14n_algorithm='http://www.w3.org/TR/2001/REC-xml-c14n-20010315'
     )
-    xml_root = None
+
     if not isinstance(xml, etree._ElementTree):
         xml = load_fromfile(xml)
+
     xml_root = xml.getroot()
     signed_root = signer.sign(xml_root, key=cert_data['key_str'], cert=cert_data['cert_str'])
     return etree.ElementTree(signed_root)

@@ -11,3 +11,5 @@ __pycache__
 *.sublime*
 *.vcs
 .idea
+
+.client-settings.json

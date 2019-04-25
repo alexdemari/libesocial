@@ -1,0 +1,36 @@
+<s:Envelope
+    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <ConsultarIdentificadoresEventosTrabalhadorResponse
+            xmlns="http://www.esocial.gov.br/schema/consulta/identificadores-eventos/trabalhador/v1_0_0">
+            <ConsultarIdentificadoresEventosTrabalhadorResult>
+                <eSocial
+                    xmlns="http://www.esocial.gov.br/schema/consulta/identificadores-eventos/trabalhador/v1_0_0"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+                    <retornoConsultaIdentificadoresEvts>
+                        <status>
+                            <cdResposta>203</cdResposta>
+                            <descResposta>Quantidade total de eventos encontrados de acordo com o filtro informado: 2. Data de envio do &#250;ltimo evento retornado: 21/03/2019 16:53:49.</descResposta>
+                        </status>
+                        <retornoIdentificadoresEvts>
+                            <qtdeTotEvtsConsulta>2</qtdeTotEvtsConsulta>
+                            <dhUltimoEvtRetornado>2019-03-21T16:53:49</dhUltimoEvtRetornado>
+                            <identificadoresEvts>
+                                <identificadorEvt>
+                                    <id>ID1327129670000002019032114182400001</id>
+                                    <nrRec>1.2.0000000000394883509</nrRec>
+                                </identificadorEvt>
+                                <identificadorEvt>
+                                    <id>ID1327129670000002019032116534600001</id>
+                                    <nrRec>1.2.0000000000395566596</nrRec>
+                                </identificadorEvt>
+                            </identificadoresEvts>
+                        </retornoIdentificadoresEvts>
+                    </retornoConsultaIdentificadoresEvts>
+                </eSocial>
+            </ConsultarIdentificadoresEventosTrabalhadorResult>
+        </ConsultarIdentificadoresEventosTrabalhadorResponse>
+    </s:Body>
+</s:Envelope>
