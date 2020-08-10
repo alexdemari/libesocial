@@ -18,6 +18,7 @@ import requests
 import esocial
 
 from urllib3.util.ssl_ import create_urllib3_context
+from urllib3.contrib import pyopenssl
 from requests.adapters import HTTPAdapter
 
 from esocial import xml
@@ -39,6 +40,7 @@ class CustomHTTPSAdapter(HTTPAdapter):
         super(CustomHTTPSAdapter, self).__init__()
 
     def init_poolmanager(self, *args, **kwargs):
+        pyopenssl.inject_into_urllib3()
         context = create_urllib3_context()
         if self.ctx_options is not None:
             # Probably there is a better (pythonic) way to setting this up
